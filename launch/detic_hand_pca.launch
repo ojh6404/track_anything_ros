@@ -1,0 +1,64 @@
+<launch>
+  <arg name="standalone" value="false"/> <!-- debug nodes by setting then standalone -->
+  <arg name="MANAGER" value="detic_detection_manager_pca" unless="$(arg standalone)"/>
+  <arg name="MANAGER" value="" if="$(arg standalone)"/>
+  <arg name="LOAD_STATEMENT" value="load" unless="$(arg standalone)"/>
+  <arg name="LOAD_STATEMENT" value="standalone" if="$(arg standalone)"/>
+
+  <arg name="namespace" default="docker" />
+
+  <arg name="input_image" default="/kinect_head/rgb/image_rect_color"/>
+  <arg name="input_depth" default="/kinect_head/depth_registered/image"/>
+  <arg name="input_camera_info" default="/kinect_head/depth_registered/camera_info"/>
+  <arg name="model_type" default="res50"/>
+  <arg name="vocabulary" default="lvis"/>
+  <arg name="custom_vocabulary" default=""/>
+  <arg name="confidence_threshold" default="0.5"/>
+  <arg name="debug" default="false"/>
+
+  <arg name="_input_image" default="/$(arg namespace)/decompressed_image"/>
+  <arg name="_input_depth" default="/$(arg namespace)/decompressed_depth"/>
+
+  <group ns='hand_docker'>
+    <node name="$(arg MANAGER)" pkg="nodelet" type="nodelet" args="manager"/>
+
+    <!-- cluster_filter: 1 is desirable, but only stable with jsk_recognition/#2739 -->
+    <node name="remote_detic_euclidean_clustering"
+          pkg="nodelet" type="nodelet"
+          args="$(arg LOAD_STATEMENT) jsk_pcl/EuclideanClustering $(arg MANAGER)"
+          clear_params="true">
+      <remap from="~input" to="depth_registered/points"/>
+      <remap from="~input/cluster_indices" to="detic_segmentor/indices"/>
+      <rosparam>
+        multi: true
+        tolerance: 0.03
+        min_size: 10
+        downsample_enable: true
+        approximate_sync: true
+        queue_size: 100
+        cluster_filter: 1
+      </rosparam>
+    </node>
+
+    <node name="remote_detic_cluster_point_indices_decomposer"
+          pkg="nodelet" type="nodelet"
+          args="$(arg LOAD_STATEMENT) jsk_pcl/ClusterPointIndicesDecomposer $(arg MANAGER)"
+          clear_params="true">
+      <remap from="~input" to="depth_registered/points"/>
+      <remap from="~target" to="remote_detic_euclidean_clustering/output"/>
+      <remap from="~boxes" to="detic_segmentor/output/pca_boxes"/>
+      <remap from="~centroid_pose_array" to="detic_segmentor/output/centroid"/>
+      <rosparam>
+        align_boxes: true
+        align_boxes_with_plane: false
+        force_to_flip_z_axis: false
+        use_pca: true
+        target_frame_id: base_footprint
+        approximate_sync: true
+        queue_size: 100
+      </rosparam>
+    </node>
+
+  </group>
+
+</launch>

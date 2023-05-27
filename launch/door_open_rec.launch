@@ -1,0 +1,34 @@
+<launch>
+
+  <arg name="ns" default="remote" />
+  <arg name="input_cloud" default="/$(arg ns)/head_rgbd_sensor/depth_registered/points" />
+  <arg name="filtered_cloud" default="extract_indices/output" />
+  <arg name="manager" default="/$(arg ns)/head_rgbd_sensor/head_rgbd_sensor_nodelet_manager" />
+
+  <arg name="approximate_sync" default="false" />
+
+  <group ns="door_rec_tmp">
+    <node name="bounding_box_array_publisher" pkg="jsk_recognition_utils" type="bounding_box_array_publisher.py">
+      <remap from="~output" to="trashbin_boxes" />
+      <rosparam>
+        frame_id: base_footprint
+        boxes:
+        - position: [0.7, 0.0, 0.3]
+          dimension: [0.4, 0.5, 0.25]
+          label: 0
+        rate: 10
+      </rosparam>
+    </node>
+
+    <include file="$(find jsk_pcl_ros)/launch/container_occupancy_detector.launch">
+      <arg name="POINTCLOUD_INPUT" value="$(arg input_cloud)" />
+      <arg name="CONTAINER_BOXES_INPUT" value="trashbin_boxes" />
+      <arg name="manager" value="container_occupancy_nodelet_manager"/>
+      <arg name="approximate_sync" value="$(arg approximate_sync)" />
+    </include>
+  </group>  <!-- end of namespace door_rec_tmp -->
+
+  <node name="occupancy0" pkg="topic_tools" type="transform"
+        args="/door_rec_tmp/container_occupancy_detector/container/occupancies /container0/occupancy std_msgs/Float32 --wait-for-start '0.0 if len(m.boxes) == 0 else m.boxes[0].value'">
+  </node>
+</launch>

@@ -1,0 +1,224 @@
+<launch>
+
+  <arg name="ns" default="robocup" />
+  <arg name="manager" default="camera_nodelet_manager" />
+  <arg name="input_point" default="/$(arg ns)/hand_camera/aligned_depth_to_color/points" />
+  <arg name="input" default="/$(arg ns)/hand_camera/aligned_depth_to_color/points" />
+  <arg name="create_manager" default="true" />
+
+  <arg name="publish_objects_tf" default="true" />
+  <arg name="machine" default="localhost" />
+  <arg name="load_machine" default="true" />
+  <arg name="sensor_frame" value="hand_camera_color_optical_frame" />
+  <arg name="launch_manager" default="true" />
+  <arg name="publish_tf" value="$(arg publish_objects_tf)" />
+
+  <node name="$(arg manager)" pkg="nodelet" type="nodelet" args="manager"
+        if="$(arg launch_manager)"
+        output="screen" />
+
+  <!-- tabletop object detection -->
+  <node name="input_relay" pkg="nodelet" type="nodelet"
+        args="load jsk_topic_tools/Relay $(arg manager)">
+    <remap from="~input" to="$(arg input)" />
+  </node>
+  <node name="multi_plane_estimate" pkg="nodelet" type="nodelet"
+        args="load jsk_pcl/OrganizedMultiPlaneSegmentation $(arg manager)"
+        output="screen"
+        if="$(arg launch_manager)">
+    <remap from="~input" to="input_relay/output" />
+    <rosparam>
+      ransac_refine_outlier_distance_threshold: 1
+      max_curvature: 0.01
+      estimate_normal: true
+    </rosparam>
+  </node>
+  <node name="polygon_magnifier" pkg="nodelet" type="nodelet"
+        args="load jsk_pcl_utils/PolygonMagnifier $(arg manager)"
+        output="screen">
+    <remap from="~input" to="multi_plane_estimate/output_refined_polygon" />
+  </node>
+  <node name="plane_extraction" pkg="nodelet" type="nodelet"
+        args="load jsk_pcl/MultiPlaneExtraction $(arg manager)"
+        output="screen">
+    <remap from="~input" to="input_relay/output" />
+    <remap from="~indices" to="multi_plane_estimate/output_refined" />
+    <remap from="~input_polygons" to="multi_plane_estimate/output_refined_polygon" />
+    <remap from="~input_coefficients" to="multi_plane_estimate/output_refined_coefficients" />
+    <rosparam subst_value="true">
+      use_sensor_frame: true
+      sensor_frame: $(arg sensor_frame)
+      <!-- min_height: 0.03 -->
+      min_height: 0.02
+    </rosparam>
+  </node>
+  <node name="euclidean_clustering" pkg="nodelet" type="nodelet"
+        args="load jsk_pcl/EuclideanClustering $(arg manager)"
+        output="screen">
+    <remap from="~input" to="plane_extraction/output" />
+    <rosparam>
+      tolerance: 0.02
+      min_size: 100
+    </rosparam>
+  </node>
+  <node name="throttle_segmentation" pkg="nodelet" type="nodelet"
+        args="load jsk_topic_tools/LightweightThrottle $(arg manager)"
+        output="screen">
+    <remap from="~input" to="euclidean_clustering/output" />
+    <remap from="~output" to="euclidean_clustering/output_throttle" />
+  </node>
+  <node name="segmentation_decomposer" pkg="nodelet" type="nodelet"
+        args="load jsk_pcl/ClusterPointIndicesDecomposer $(arg manager)"
+        output="screen"
+	    clear_params="true">
+    <remap from="~input" to="plane_extraction/output" />
+    <remap from="~target" to="euclidean_clustering/output_throttle" />
+    <remap from="~align_planes" to="multi_plane_estimate/output_refined_polygon" />
+    <remap from="~align_planes_coefficients"
+           to="multi_plane_estimate/output_refined_coefficients" />
+    <rosparam subst_value="true">
+      align_boxes: true
+      use_pca: true
+      publish_clouds: false
+      publish_tf: $(arg publish_tf)
+      sort_by: -cloud_size
+    </rosparam>
+  </node>
+
+  <!-- <group ns="pcl_nodelet"> -->
+  <!--    <node if="$(arg create_manager)" -->
+  <!--         pkg="nodelet" type="nodelet" name="$(arg manager)" -->
+  <!--         args="manager" output="screen"/> -->
+  <!--    <node pkg="nodelet" type="nodelet" -->
+  <!--         name="voxelgrid" -->
+  <!--         args="load pcl/VoxelGrid $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="$(arg input_point)" /> -->
+  <!--     <rosparam> -->
+  <!--       filter_field_name: z -->
+  <!--       filter_limit_min: 0.0 -->
+  <!--       filter_limit_max: 5.0 -->
+  <!--       leaf_size: 0.01 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+  <!--    <node pkg="nodelet" type="nodelet" -->
+  <!--         name="clustering" -->
+  <!--         args="load jsk_pcl/EuclideanClustering $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/voxelgrid/output" /> -->
+  <!--     <rosparam> -->
+  <!--        tolerance: 0.1 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="cluster_decomposer" -->
+  <!--         args="load jsk_pcl/ClusterPointIndicesDecomposerZAxis $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/voxelgrid/output" /> -->
+  <!--     <remap from="~target" to="/pcl_nodelet/clustering/output" /> -->
+  <!--     <rosparam> -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher00" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output00" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster00 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher01" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output01" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster01 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher02" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output02" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster02 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher03" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output03" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster03 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher04" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output04" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster04 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher05" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output05" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster05 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher06" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output06" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster06 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher07" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output07" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster07 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher08" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output08" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster08 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!--   <node pkg="nodelet" type="nodelet" -->
+  <!--         name="centroid_publisher09" -->
+  <!--         args="load jsk_pcl/CentroidPublisher $(arg manager)" -->
+  <!--         output="screen" clear_params="true"> -->
+  <!--     <remap from="~input" to="/pcl_nodelet/cluster_decomposer/output09" /> -->
+  <!--     <rosparam> -->
+  <!--       frame: cluster09 -->
+  <!--     </rosparam> -->
+  <!--   </node> -->
+
+  <!-- </group>                      <!-\- pcl_nodelet -\-> -->
+</launch>

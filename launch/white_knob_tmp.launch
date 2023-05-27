@@ -1,0 +1,105 @@
+<launch>
+
+  <arg name="ns" default="remote" />
+  <arg name="input_cloud" default="/$(arg ns)/head_rgbd_sensor/depth_registered/points" />
+  <arg name="filtered_cloud" default="extract_indices/output" />
+  <arg name="manager" default="/$(arg ns)/head_rgbd_sensor/head_rgbd_sensor_nodelet_manager" />
+
+  <arg name="h_max" default="0" doc="maximum hue 127 corresponds to pi. When we define M as (max r g b), m as (r g b) and c as M-m, hue is calculated as 1. undifined (if c=0) 2. (((g-b)/6)*mod6)*60-180 (if M=r) 3. (((b-r)/c)+2)*60-180 (if M=g) 4. (((r-g)/c)+4)*60-180 (if M=b)"/>
+  <!-- <arg name="h_max" default="-85" doc="maximum hue 127 corresponds to pi. When we define M as (max r g b), m as (r g b) and c as M-m, hue is calculated as 1. undifined (if c=0) 2. (((g-b)/6)*mod6)*60-180 (if M=r) 3. (((b-r)/c)+2)*60-180 (if M=g) 4. (((r-g)/c)+4)*60-180 (if M=b)"/> -->
+  <arg name="h_min" default="-120" doc="minimum hue -128 corresponds to -pi. When we define M as (max r g b), m as (r g b) and c as M-m, hue is calculated as 1. undifined (if c=0) 2. (((g-b)/6)*mod6)*60-180 (if M=r) 3. (((b-r)/c)+2)*60-180 (if M=g) 4. (((r-g)/c)+4)*60-180 (if M=b)" />
+  <arg name="s_max" default="152" doc="maximum satuation 255 corresponds to 1. Satuation is calucrated as (1-(min r g b)/intensity) * 255"/>
+  <arg name="s_min" default="0" doc="minimum satuation 0 corresponds to 0. Satuation is calucrated as (1-(min r g b)/intensity) * 255"/>
+  <arg name="i_max" default="255" doc="maximum intensity 255 corresponds to 1. Intensity is calculated as (r + g + b)/3"/>
+  <arg name="i_min" default="146" doc="minimum intensity 0 corresponds to 0. Intensity is calculated as (r + g + b)/3"/>
+
+  <group ns="white_knob_tmp">
+
+    <node name="attention_clipper"
+          pkg="nodelet" type="nodelet"
+          args="load jsk_pcl/AttentionClipper $(arg manager)">
+      <remap from="~input/points" to="$(arg input_cloud)" />
+      <!-- look high and low  -->
+      <rosparam>
+        frame_id: base_footprint
+        use_multiple_attention: false
+        dimension_x: 0.2
+        dimension_y: 0.2
+        dimension_z: 0.35
+        initial_pos: [0.7, 0.0, 0.37]
+      </rosparam>
+
+      <!-- <!-\- look only top  -\-> -->
+      <!-- <rosparam> -->
+      <!--   frame_id: base_footprint -->
+      <!--   use_multiple_attention: false -->
+      <!--   dimension_x: 0.2 -->
+      <!--   dimension_y: 0.2 -->
+      <!--   dimension_z: 0.1 -->
+      <!--   initial_pos: [0.7, 0.0, 0.5] -->
+      <!-- </rosparam> -->
+
+      <!-- <!-\- look all -\-> -->
+      <!-- <rosparam> -->
+      <!--   frame_id: base_footprint -->
+      <!--   use_multiple_attention: false -->
+      <!--   dimension_x: 1.0 -->
+      <!--   dimension_y: 1.0 -->
+      <!--   dimension_z: 0.8 -->
+      <!--   initial_pos: [0.8, 0.0, 0.5] -->
+      <!-- </rosparam> -->
+    </node>
+
+    <node name="extract_indices"
+          pkg="nodelet" type="nodelet"
+          args="load jsk_pcl/ExtractIndices $(arg manager)">
+      <remap from="~input" to="$(arg input_cloud)" />
+      <remap from="~indices" to="attention_clipper/output/point_indices" />
+      <rosparam>
+        keep_organized: true
+      </rosparam>
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="hsi_filter"
+          args="load jsk_pcl/HSIColorFilter $(arg manager)" output="screen">
+      <remap from="~input" to="$(arg filtered_cloud)" />
+      <remap from="~output" to="hsi_output" />
+      <rosparam>
+        use_indices: false
+      </rosparam>
+      <param name="h_limit_max" value="$(arg h_max)" />
+      <param name="h_limit_min" value="$(arg h_min)" />
+      <param name="s_limit_max" value="$(arg s_max)" />
+      <param name="s_limit_min" value="$(arg s_min)" />
+      <param name="i_limit_max" value="$(arg i_max)" />
+      <param name="i_limit_min" value="$(arg i_min)" />
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="euclidean_clustering"
+          args="load jsk_pcl/EuclideanClustering $(arg manager)" output="screen">
+      <remap from="~input" to="hsi_output" />
+      <rosparam>
+        tolerance: 0.02
+        min_size: 100
+      </rosparam>
+    </node>
+
+    <node pkg="nodelet" type="nodelet"
+          name="cluster_decomposer"
+          args="load jsk_pcl/ClusterPointIndicesDecomposer $(arg manager)"
+          output="screen" clear_params="true">
+      <remap from="~input" to="hsi_output" />
+      <remap from="~target" to="euclidean_clustering/output" />
+      <!-- <remap from="~debug_output" to="debug_output$(arg FILTER_NAME_SUFFIX)" /> -->
+      <remap from="~boxes" to="boxes" />
+      <rosparam>
+        align_boxes: true
+        align_boxes_with_plane: false
+        target_frame_id: base_link
+        use_pca: true
+        force_to_flip_z_axis: false
+      </rosparam>
+    </node>
+  </group>  <!-- end of namespace-->
+
+</launch>

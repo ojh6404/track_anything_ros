@@ -1,0 +1,43 @@
+<launch>
+
+  <arg name="ns" default="hsrb" />
+  <arg name="input_image" default="/$(arg ns)/head_rgbd_sensor/rgb/image_rect_color" />
+  <arg name="input_info" default="/$(arg ns)/head_rgbd_sensor/rgb/camera_info" />
+  <arg name="input_depth" default="/$(arg ns)/head_rgbd_sensor/depth_registered/image_rect_raw" />
+  <arg name="gui" default="true" />
+
+  <node name="people_pose_estimation"
+        pkg="jsk_robocup_perception" type="people_pose_estimation.py"
+        output="screen"
+        respawn="true" >
+    <remap from="~input" to="$(arg input_image)" />
+    <rosparam subst_value="true" >
+      model_path: $(find jsk_robocup_perception)/trained_data/E2Pose/saved_model/e2epose_resnet50_1x3x512x512.onnx
+    </rosparam>
+  </node>
+
+  <node name="skeleton_with_depth"
+        pkg="jsk_robocup_perception" type="skeleton_with_depth.py"
+        output="screen"
+        respawn="true" >
+    <remap from="~input/skeleton" to="people_pose_estimation/output/skeleton" />
+    <remap from="~input/depth" to="$(arg input_depth)" />
+    <remap from="~input/info" to="$(arg input_info)" />
+  </node>
+
+  <node name="human_skeleton_to_laban"
+        pkg="jsk_robocup_perception" type="human_skeleton_to_laban.py"
+        output="screen"
+        respawn="true" >
+    <remap from="~input/skeleton" to="skeleton_with_depth/output/pose" />
+  </node>
+
+  <group if="$(arg gui)" >
+    <node name="rviz"
+          pkg="rviz" type="rviz"
+          args="-d $(find jsk_robocup_perception)/sample/config/people_pose_estimation_for_hsr.rviz">
+    </node>
+  </group>
+
+
+</launch>

@@ -1,0 +1,43 @@
+<launch>
+  <arg name="ns" default="remote" />
+  <arg name="downsample" default="true"/>
+  <arg name="input_cloud" default="/$(arg ns)/head_rgbd_sensor/depth_registered/points" />
+  <arg name="input_cluster_indices" default="/$(arg ns)/instance_segmentation/output/cluster_indices" />
+  <arg name="manager" default="/$(arg ns)/head_rgbd_sensor/head_rgbd_sensor_nodelet_manager" />
+
+  <node name="multi_euclidean_clustering"
+        pkg="nodelet" type="nodelet"
+        args="load jsk_pcl/EuclideanClustering $(arg manager)"
+        output="screen"
+        respawn="true" >
+    <remap from="~input/cluster_indices" to="$(arg input_cluster_indices)" />
+    <remap from="~input" to="$(arg input_cloud)" />
+    <rosparam subst_value="true">
+      tolerance: 0.02
+      min_size: 0
+      max_size: 10000
+      approximate_sync: true
+      downsample_enable: $(arg downsample)
+      multi: true
+      queue_size: 100
+      cluster_filter: 1
+    </rosparam>
+  </node>
+
+  <node name="multi_euclidean_cluster_point_indices_decomposer"
+        pkg="nodelet" type="nodelet"
+        args="load jsk_pcl/ClusterPointIndicesDecomposer $(arg manager)"
+        clear_params="true" >
+    <remap from="~input" to="$(arg input_cloud)" />
+    <remap from="~target" to="multi_euclidean_clustering/output" />
+    <rosparam>
+      align_boxes: true
+      align_boxes_with_plane: false
+      use_pca: true
+      approximate_sync: false
+      queue_size: 100
+      target_frame_id: base_footprint
+    </rosparam>
+  </node>
+
+</launch>
