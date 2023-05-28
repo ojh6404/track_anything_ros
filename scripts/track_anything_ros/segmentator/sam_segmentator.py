@@ -38,6 +38,7 @@ class SAMSegmentator(object):
     def set_image(self, image: np.ndarray):
         # image embedding: avoid encode the same image multiple times
         self.embedded_image = image
+        # print("why image ", image)
         if self.embedded_image is not None:
             print("repeat embedding, please reset_image.")
             return
@@ -87,7 +88,7 @@ class SAMSegmentator(object):
         # masks (n, h, w), scores (n,), logits (n, 256, 256)
         return masks, scores, logits
 
-    def first_frame_click(
+    def process_prompt(
         self,
         image: np.ndarray,
         points: np.ndarray,
@@ -106,18 +107,14 @@ class SAMSegmentator(object):
                 "point_coords": points,
                 "point_labels": labels,
             }
-            masks, scores, logits = self.sam_controler.predict(
-                prompts, "point", multimask
-            )
+            masks, scores, logits = self.predict(prompts, "point", multimask)
             mask, logit = masks[np.argmax(scores)], logits[np.argmax(scores), :, :]
             prompts = {
                 "point_coords": points,
                 "point_labels": labels,
                 "mask_input": logit[None, :, :],
             }
-            masks, scores, logits = self.sam_controler.predict(
-                prompts, "both", multimask
-            )
+            masks, scores, logits = self.predict(prompts, "both", multimask)
             mask, logit = masks[np.argmax(scores)], logits[np.argmax(scores), :, :]
         else:
             # negative
@@ -125,9 +122,7 @@ class SAMSegmentator(object):
                 "point_coords": points,
                 "point_labels": labels,
             }
-            masks, scores, logits = self.sam_controler.predict(
-                prompts, "point", multimask
-            )
+            masks, scores, logits = self.predict(prompts, "point", multimask)
             mask, logit = masks[np.argmax(scores)], logits[np.argmax(scores), :, :]
 
         assert len(points) == len(labels)

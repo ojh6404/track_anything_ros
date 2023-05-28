@@ -3,7 +3,6 @@ import base64
 
 import cv2
 import cv_bridge
-from dynamic_reconfigure.server import Server
 from jsk_recognition_msgs.msg import ClassificationResult
 from jsk_recognition_msgs.msg import ClusterPointIndices
 from jsk_recognition_msgs.msg import Label
@@ -13,24 +12,12 @@ from jsk_recognition_msgs.msg import RectArray
 from jsk_topic_tools import ConnectionBasedTransport
 import numpy as np
 from pcl_msgs.msg import PointIndices
-import requests
 import rospy
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
-
-# from track_anything_ros.track_anything import TrackAnything
 
 from track_anything_ros.track_anything import TrackAnything
 from track_anything_ros.utils import util as TrackAnythingUtil
 
-
-import requests
-import gdown
-import os
-import sys
-
-import torch
-import time
 import argparse
 
 
@@ -62,13 +49,31 @@ class InstanceSegmentationNode(ConnectionBasedTransport):
 
         self.bridge = cv_bridge.CvBridge()
 
+        # self.prompt = dict()
+        self.points = np.array(
+            [[[350, 290]]]
+        )  # self.points[0][0] = [350, 290], [mask_num][point_num]
+        self.labels = np.array([[1]])  # self.labels[0] = [1], [mask_num]
+        self.multimask = True
+
+        self.logits = []
+        self.painted_image = []
+        self.masks = []
+        # self.sam_prompt = {"points": [350, 290], "labels": [1], "multimask": True}
+
+        self.embedded_image = None  # initialized by None
+        self.image = None
+
+        self.track_anything.xmem.clear_memory()
+
     def subscribe(self):
         # self.sub = rospy.Subscriber(
         #     "~input", Image, self.callback, queue_size=1, buff_size=2**24
         # )
         # TODO
         self.sub = rospy.Subscriber(
-            "/kinect_head/rgb/image_raw",
+            # "/kinect_head/rgb/image_raw",
+            "/zed/zed_node/rgb/image_rect_color",
             Image,
             self.callback,
             queue_size=1,
@@ -77,13 +82,63 @@ class InstanceSegmentationNode(ConnectionBasedTransport):
 
     def unsubscribe(self):
         self.sub.unregister()
+        self.track_anything.xmem.clear_memory()
+
+    def add_multi_mask(self):
+        template_mask = np.zeros_like(self.masks[0])
+        # for i in range(1, len(self.masks)):
+        for i, mask in enumerate(self.masks):
+            template_mask = np.clip(
+                template_mask + mask * (i + 1),
+                0,
+                i + 1,
+            )
+
+        assert np.unique(template_mask) == (len(self.masks) + 1)
+        print("test for template mask uniq")
+        print(np.unique(template_mask))
+
+        self.template_mask = template_mask
 
     def callback(self, img_msg):
         img = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
 
+        # print("testjio")
+        # print(self.embedded_image)
+        if self.embedded_image is not None:  # after init
+            # self.mask, self.logit, self.painted_image = self.track_anything.xmem.track(
+            #     img
+            # )
+            pass
+        else:  # init
+            # get masks
+            print("first emb")
+            self.embedded_image = img
+            self.track_anything.sam.reset_image()
+            print("why this?")
+            print(self.track_anything.sam.embedded_image)
+            self.track_anything.sam.set_image(self.embedded_image)
+            # for i in range(len(self.points)):
+            #     mask, logit, painted_image = self.track_anything.sam.process_prompt(
+            #         image=img,
+            #         points=self.points[i],
+            #         labels=self.labels[i],
+            #         multimask=self.multimask,
+            #     )
+            #     self.masks.append(mask)
+            #     self.logits.append(logit)
+            #     self.painted_image.append(painted_image)
+            # # set xmem first_frame
+            # self.mask, self.logit, self.painted_image = self.track_anything.xmem.track(
+            #     frame=img, first_frame_annotation=self.template_mask
+            # )
+
         out_img_msg = self.bridge.cv2_to_imgmsg(img, encoding="bgr8")
         out_img_msg.header = img_msg.header
         self.pub_segment_img.publish(out_img_msg)
+
+        rgb_frame = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        cv2.imshow("frame", rgb_frame)
 
         # data = inference(img, self.score_thresh, url=self.url)
         # target_names = data["class_names"]
@@ -156,7 +211,7 @@ class InstanceSegmentationNode(ConnectionBasedTransport):
 
 if __name__ == "__main__":
     # TODO
-    model_dir = "/home/leus/ros/catkin_ws/src/jsk_robocup/track_anything_ros/scripts/track_anything_ros/checkpoints/"
+    model_dir = "/home/oh/ros/catkin_ws/src/track_anything_ros/scripts/track_anything_ros/checkpoints/"
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--sam_model_type", type=str, default="vit_b")
@@ -170,6 +225,18 @@ if __name__ == "__main__":
         "--e2fgvi_checkpoint", type=str, default=model_dir + "E2FGVI-HQ-CVPR22.pth"
     )
     args = parser.parse_args()
+
+    # capture = cv2.VideoCapture(0)
+
+    # while True:
+    #     ret, frame = capture.read()
+    #     cv2.imshow("frame", frame)
+    #     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    #     if cv2.waitKey(1) & 0xFF == ord("q"):
+    #         break
+
+    # capture.release()
+    # cv2.destroyAllWindows()
 
     rospy.init_node("instance_segmentation")
     node = InstanceSegmentationNode(args=args)
