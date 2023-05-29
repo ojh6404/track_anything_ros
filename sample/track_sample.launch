@@ -43,12 +43,8 @@
       <param name="use_window" value="false" />
     </node>
 
-    <node pkg="rqt_image_view" type="rqt_image_view" name="$(anon rqt_image_view)"
-          output="screen">
-      <remap from="image" to="$(arg output_image)" />
-      <param name="image" value="$(arg output_image)" />
-      <!-- <remap from="event" to="image_view2/event" /> -->
-      <!-- <remap from="image_marked" to="image_marked" /> -->
+    <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen">
+    <remap from="image" to="$(arg output_image)" />
     </node>
 
     <node name="track_anything_button"

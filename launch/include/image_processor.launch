@@ -1,0 +1,60 @@
+<launch>
+  <node pkg="tf" type="static_transform_publisher" name="camera_transform_publisher" args="-0.02 0.144 0.295 0 1.0467 0 /link1 /camera_link 100" />
+
+  <arg name="raw_view" default="True"/>
+  <arg name="processed_view" default="True"/>
+  <arg name="decompress" default="False"/>
+  <arg name="camera_info" default="/camera/color/camera_info"/>
+  <arg name="camera_image" default="/camera/color/image_rect_color"/>
+  <arg name="repub_image" default="/camera/color/image_rect_color_repub"/>
+  <arg name="processed_image" default="processed_image"/>
+
+  <arg name="throttle_hz" default="10"/>
+  <arg name="x_offset" default="80"/>
+  <arg name="y_offset" default="30"/>
+  <arg name="width" default="560"/>
+  <arg name="height" default="420"/>
+
+  <group ns="mycobot_cloth">
+    <group if="$(arg decompress)">
+      <node name="raw_image_transport" pkg="image_transport" type="republish" args="compressed">
+        <remap from="in" to="$(arg camera_image)"/>
+        <remap from="out" to="$(arg repub_image)"/>
+      </node>
+    </group>
+
+    <group unless="$(arg decompress)">
+      <node name="raw_image_relay" pkg="topic_tools" type="relay" args="$(arg camera_image) $(arg repub_image)"/>
+    </group>
+
+    <node name="camera_image_throttle" pkg="topic_tools" type="throttle" args="messages $(arg repub_image) $(arg throttle_hz)"/>
+    <node name="camera_info_throttle" pkg="topic_tools" type="throttle" args="messages $(arg camera_info) $(arg throttle_hz)"/>
+
+    <arg name="manager" value="mycobot_cloth_manager"/>
+    <node name="$(arg manager)" pkg="nodelet" type="nodelet" args="manager"/>
+
+    <node name="crop_decimate" pkg="nodelet" type="nodelet"
+      args="load image_proc/crop_decimate $(arg manager)">
+      <remap from="camera/image_raw" to="$(arg repub_image)_throttle"/>
+      <remap from="camera/camera_info" to="$(arg camera_info)_throttle"/>
+      <remap from="camera_out/image_raw" to="$(arg processed_image)"/>
+      <rosparam subst_value="true">
+        decimation_x : 1
+        decimation_y : 1
+        x_offset : $(arg x_offset)
+        y_offset : $(arg y_offset)
+        width : $(arg width)
+        height : $(arg height)
+        queue_size : 100
+      </rosparam>
+    </node>
+
+    <node name="raw_image_view" pkg="image_view" type="image_view" if="$(arg raw_view)">
+      <remap from="image" to="$(arg repub_image)"/>
+    </node>
+
+    <node name="processed_image_view" pkg="image_view" type="image_view" if="$(arg processed_view)">
+      <remap from="image" to="$(arg processed_image)"/>
+    </node>
+  </group>
+</launch>

@@ -3,7 +3,7 @@
   <arg name="input"/>
   <arg name="width" default="640"/>
   <arg name="height" default="480"/>
-  <node name="hogehogehoge"
+  <node name="image_resizer"
         pkg="nodelet" type="nodelet"
         args="standalone image_proc/resize"
         respawn="true">
