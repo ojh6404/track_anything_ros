@@ -37,12 +37,11 @@ class SAMSegmentator(object):
     @torch.no_grad()
     def set_image(self, image: np.ndarray):
         # image embedding: avoid encode the same image multiple times
-        self.embedded_image = image
-        # print("why image ", image)
         if self.embedded_image is not None:
             print("repeat embedding, please reset_image.")
             return
         self.predictor.set_image(image)
+        self.embedded_image = image
         return
 
     @torch.no_grad()
@@ -94,7 +93,6 @@ class SAMSegmentator(object):
         points: np.ndarray,
         labels: np.ndarray,
         multimask=True,
-        mask_color=3,
     ):
         """
         it is used in first frame in video
@@ -127,33 +125,33 @@ class SAMSegmentator(object):
 
         assert len(points) == len(labels)
 
-        painted_image = mask_painter(
-            image,
-            mask.astype("uint8"),
-            mask_color,
-            mask_alpha,
-            contour_color,
-            contour_width,
-        )
-        # positive label marker
-        painted_image = point_painter(
-            painted_image,
-            np.squeeze(points[np.argwhere(labels > 0)], axis=1),
-            point_color_ne,
-            point_alpha,
-            point_radius,
-            contour_color,
-            contour_width,
-        )
-        # negative label marker
-        painted_image = point_painter(
-            painted_image,
-            np.squeeze(points[np.argwhere(labels < 1)], axis=1),
-            point_color_ps,
-            point_alpha,
-            point_radius,
-            contour_color,
-            contour_width,
-        )
-        painted_image = Image.fromarray(painted_image)
-        return mask, logit, painted_image
+        # painted_image = mask_painter(
+        #     image,
+        #     mask.astype("uint8"),
+        #     mask_color,
+        #     mask_alpha,
+        #     contour_color,
+        #     contour_width,
+        # )
+        # # positive label marker
+        # painted_image = point_painter(
+        #     painted_image,
+        #     np.squeeze(points[np.argwhere(labels > 0)], axis=1),
+        #     point_color_ne,
+        #     point_alpha,
+        #     point_radius,
+        #     contour_color,
+        #     contour_width,
+        # )
+        # # negative label marker
+        # painted_image = point_painter(
+        #     painted_image,
+        #     np.squeeze(points[np.argwhere(labels < 1)], axis=1),
+        #     point_color_ps,
+        #     point_alpha,
+        #     point_radius,
+        #     contour_color,
+        #     contour_width,
+        # )
+        # painted_image = Image.fromarray(painted_image)
+        return mask, logit

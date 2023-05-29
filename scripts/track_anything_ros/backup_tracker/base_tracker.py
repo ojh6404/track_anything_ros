@@ -19,7 +19,7 @@ class BaseTracker(object):
         """
         # load configurations
         with open(
-            "/home/leus/ros/catkin_ws/src/track_anything_ros/config/config.yaml",
+            "/home/oh/ros/catkin_ws/src/track_anything_ros/config/config.yaml",
             "r",
         ) as stream:
             config = yaml.safe_load(stream)

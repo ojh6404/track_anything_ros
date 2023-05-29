@@ -1,0 +1,15 @@
+- name: "Clear points"
+  service: "/track_anything/clear_points"
+  column: 0
+- name: "Clear masks"
+  service: "/track_anything/clear_masks"
+  column: 1
+- name: "Add mask"
+  service: "/track_anything/add_mask"
+  column: 2
+- name: "Set embedding image"
+  service: "/track_anything/set_embed"
+  column: 3
+- name: "Reset embedding image"
+  service: "/track_anything/reset_embed"
+  column: 4
