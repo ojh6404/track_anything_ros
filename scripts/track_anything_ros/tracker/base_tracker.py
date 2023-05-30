@@ -23,7 +23,6 @@ class BaseTracker(object):
             "r",
         ) as stream:
             config = yaml.safe_load(stream)
-        # TODO
 
         # initialise XMem
         network = XMem(config, xmem_checkpoint).to(device).eval()
