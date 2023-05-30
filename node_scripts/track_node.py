@@ -50,6 +50,7 @@ class InstanceSegmentationNode(ConnectionBasedTransport):
         super(InstanceSegmentationNode, self).__init__()
 
         model_dir = rospy.get_param("~model_dir")
+        config_file = rospy.get_param("~config_file")
         model_type = rospy.get_param("~model_type", "vit_b")
 
         sam_checkpoint = download_checkpoint(
@@ -66,7 +67,7 @@ class InstanceSegmentationNode(ConnectionBasedTransport):
 
         self.device = rospy.get_param("~device", "cuda:0")
         self.sam = SAMSegmentator(sam_checkpoint, model_type, device=self.device)
-        self.xmem = BaseTracker(xmem_checkpoint, device=self.device)
+        self.xmem = BaseTracker(xmem_checkpoint, config_file, device=self.device)
 
         self.clear_points_service = rospy.Service(
             "/track_anything/clear_points", Empty, self.clear_points_callback

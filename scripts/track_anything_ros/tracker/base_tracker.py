@@ -12,14 +12,14 @@ from track_anything_ros.utils.painter import mask_painter
 
 
 class BaseTracker(object):
-    def __init__(self, xmem_checkpoint, device) -> None:
+    def __init__(self, xmem_checkpoint, config_file, device) -> None:
         """
         device: model device
         xmem_checkpoint: checkpoint of XMem model
         """
         # load configurations
         with open(
-            "/home/oh/ros/catkin_ws/src/track_anything_ros/config/config.yaml",
+            config_file,
             "r",
         ) as stream:
             config = yaml.safe_load(stream)
