@@ -228,7 +228,8 @@ class InstanceSegmentationNode(ConnectionBasedTransport):
         return template_mask
 
     def callback(self, img_msg):
-        self.image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
+        # self.image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
+        self.image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8")
 
         if self.template_mask is not None:  # track start
             self.mask, self.logit, self.painted_image = self.xmem.track(self.image)
@@ -264,7 +265,8 @@ class InstanceSegmentationNode(ConnectionBasedTransport):
                 CONTOUR_WIDTH,
             )
 
-        out_img_msg = self.bridge.cv2_to_imgmsg(self.painted_image, encoding="bgr8")
+        # out_img_msg = self.bridge.cv2_to_imgmsg(self.painted_image, encoding="bgr8")
+        out_img_msg = self.bridge.cv2_to_imgmsg(self.painted_image, encoding="rgb8")
         out_img_msg.header = img_msg.header
         self.pub_segment_image.publish(out_img_msg)
 
