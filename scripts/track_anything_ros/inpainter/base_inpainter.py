@@ -5,25 +5,29 @@ from PIL import Image
 import torch
 import yaml
 import cv2
-import importlib
+
+# import importlib
 import numpy as np
 from tqdm import tqdm
 
+
 from track_anything_ros.inpainter.util.tensor_util import resize_frames, resize_masks
+from track_anything_ros.inpainter.model.e2fgvi_hq import InpaintGenerator
 
 
 class BaseInpainter(object):
-    def __init__(self, E2FGVI_checkpoint, device) -> None:
+    def __init__(self, E2FGVI_checkpoint, inpainter_config_file, device) -> None:
         """
         E2FGVI_checkpoint: checkpoint of inpainter (version hq, with multi-resolution support)
         """
-        net = importlib.import_module("inpainter.model.e2fgvi_hq")
-        self.model = net.InpaintGenerator().to(device)
+        # net = importlib.import_module("inpainter.model.e2fgvi_hq")
+        # self.model = net.InpaintGenerator().to(device)
+        self.model = InpaintGenerator().to(device)
         self.model.load_state_dict(torch.load(E2FGVI_checkpoint, map_location=device))
         self.model.eval()
         self.device = device
         # load configurations
-        with open("inpainter/config/config.yaml", "r") as stream:
+        with open(inpainter_config_file, "r") as stream:
             config = yaml.safe_load(stream)
         self.neighbor_stride = config["neighbor_stride"]
         self.num_ref = config["num_ref"]
@@ -409,60 +413,3 @@ class BaseInpainter(object):
             torch.cuda.empty_cache()
         inpainted_frames = np.stack(comp_frames, 0)
         return inpainted_frames.astype(np.uint8)
-
-
-if __name__ == "__main__":
-    # # davis-2017
-    # frame_path = glob.glob(os.path.join('/ssd1/gaomingqi/datasets/davis/JPEGImages/480p/parkour', '*.jpg'))
-    # frame_path.sort()
-    # mask_path = glob.glob(os.path.join('/ssd1/gaomingqi/datasets/davis/Annotations/480p/parkour', "*.png"))
-    # mask_path.sort()
-
-    # long and large video
-    mask_path = glob.glob(os.path.join("/ssd1/gaomingqi/test-sample13", "*.npy"))
-    mask_path.sort()
-    frames = np.load("/ssd1/gaomingqi/revenger.npy")
-    save_path = "/ssd1/gaomingqi/results/inpainting/avengers_split"
-
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
-
-    masks = []
-    for ti, mid in enumerate(mask_path):
-        masks.append(np.load(mid, allow_pickle=True))
-        if ti > 1122:
-            break
-
-    masks = np.stack(masks[: len(frames)], 0)
-
-    # ----------------------------------------------
-    # how to use
-    # ----------------------------------------------
-    # 1/3: set checkpoint and device
-    checkpoint = "/ssd1/gaomingqi/checkpoints/E2FGVI-HQ-CVPR22.pth"
-    device = "cuda:4"
-    # 2/3: initialise inpainter
-    base_inpainter = BaseInpainter(checkpoint, device)
-    # 3/3: inpainting (frames: numpy array, T, H, W, 3; masks: numpy array, T, H, W)
-    # ratio: (0, 1], ratio for down sample, default value is 1
-    inpainted_frames = base_inpainter.inpaint(
-        frames[:300], masks[:300], ratio=0.6
-    )  # numpy array, T, H, W, 3
-
-    # save
-    for ti, inpainted_frame in enumerate(inpainted_frames):
-        frame = Image.fromarray(inpainted_frame).convert("RGB")
-        frame.save(os.path.join(save_path, f"{ti:05d}.jpg"))
-
-    torch.cuda.empty_cache()
-    print("switch to ori")
-
-    # inpainted_frames = base_inpainter.inpaint_ori(frames[:50], masks[:50], ratio=0.1)
-    # save_path = '/ssd1/gaomingqi/results/inpainting/avengers'
-    # # ----------------------------------------------
-    # # end
-    # # ----------------------------------------------
-    # # save
-    # for ti, inpainted_frame in enumerate(inpainted_frames):
-    # 	frame = Image.fromarray(inpainted_frame).convert('RGB')
-    # 	frame.save(os.path.join(save_path, f'{ti:05d}.jpg'))

@@ -31,12 +31,19 @@ class ImageLatentPublisher:
 
         self.bridge = CvBridge()
 
+        # (
+        #     self.model,
+        #     self.embd_size,
+        #     self.model_transforms,
+        #     self.model_info,
+        # ) = model_utils.load_model(model_utils.VC1_BASE_NAME)
+
         (
             self.model,
             self.embd_size,
             self.model_transforms,
             self.model_info,
-        ) = model_utils.load_model(model_utils.VC1_BASE_NAME)
+        ) = model_utils.load_model(model_utils.VC1_LARGE_NAME)
 
         self.model.to("cuda:0")
 

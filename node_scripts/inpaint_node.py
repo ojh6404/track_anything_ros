@@ -12,6 +12,7 @@ from torch import device
 
 from track_anything_ros.segmentator.sam_segmentator import SAMSegmentator
 from track_anything_ros.tracker.base_tracker import BaseTracker
+from track_anything_ros.inpainter.base_inpainter import BaseInpainter
 from track_anything_ros.utils.painter import point_painter, mask_painter
 from track_anything_ros.utils.util import (
     download_checkpoint,
@@ -41,15 +42,17 @@ XMEM_CHECKPOINT = "XMem-s012.pth"
 XMEM_CHECKPOINT_URL = (
     "https://github.com/hkchengrex/XMem/releases/download/v1.0/XMem-s012.pth"
 )
+E2FGVI_CHECKPOINT = "E2FGVI-HQ-CVPR22.pth"
+E2FGVI_CHECKPOINT_ID = "10wGdKSUOie0XmCr8SQ2A2FeDe-mfn5w3"
 
 
-class TrackNode(ConnectionBasedTransport):
+class InpaintNode(ConnectionBasedTransport):
     def __init__(self):
-        super(TrackNode, self).__init__()
+        super(InpaintNode, self).__init__()
 
         model_dir = rospy.get_param("~model_dir")
         tracker_config_file = rospy.get_param("~tracker_config_file")
-        # inpainter_config_file = rospy.get_param("~inpainter_config_file")
+        inpainter_config_file = rospy.get_param("~inpainter_config_file")
         model_type = rospy.get_param("~model_type", "vit_b")
 
         sam_checkpoint = download_checkpoint(
@@ -60,10 +63,17 @@ class TrackNode(ConnectionBasedTransport):
         xmem_checkpoint = download_checkpoint(
             XMEM_CHECKPOINT_URL, model_dir, XMEM_CHECKPOINT
         )
+        e2fgvi_checkpoint = download_checkpoint_from_google_drive(
+            E2FGVI_CHECKPOINT_ID, model_dir, E2FGVI_CHECKPOINT
+        )
+
         self.device = rospy.get_param("~device", "cuda:0")
         self.sam = SAMSegmentator(sam_checkpoint, model_type, device=self.device)
         self.xmem = BaseTracker(
             xmem_checkpoint, tracker_config_file, device=self.device
+        )
+        self.inpaint_model = BaseInpainter(
+            e2fgvi_checkpoint, inpainter_config_file, device=self.device
         )
 
         self.clear_points_service = rospy.Service(
@@ -269,6 +279,6 @@ class TrackNode(ConnectionBasedTransport):
 
 
 if __name__ == "__main__":
-    rospy.init_node("track_node")
-    node = TrackNode()
+    rospy.init_node("instance_segmentation")
+    node = InstanceSegmentationNode()
     rospy.spin()

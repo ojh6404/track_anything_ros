@@ -28,7 +28,8 @@
         device: $(arg device)
         model_type: $(arg model_type)
         model_dir: $(find track_anything_ros)/checkpoints/
-        config_file: $(find track_anything_ros)/config/config.yaml
+        tracker_config_file: $(find track_anything_ros)/config/tracker_config.yaml
+        inpainter_config_file: $(find track_anything_ros)/config/inpainter_config.yaml
       </rosparam>
     </node>
 
