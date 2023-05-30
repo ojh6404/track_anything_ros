@@ -21,7 +21,7 @@ from track_anything_ros.utils.util import (
 MASK_COLOR = 3
 MASK_ALPHA = 0.9
 POINT_COLOR_N = 8
-point_color_ps = 50
+POINT_COLOR_P = 50
 POINT_ALPHA = 0.9
 POINT_RADIUS = 5
 CONTOUR_COLOR = 1
