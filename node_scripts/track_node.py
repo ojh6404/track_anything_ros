@@ -86,7 +86,10 @@ class TrackNode(ConnectionBasedTransport):
             "/track_anything/track_trigger", Empty, self.track_trigger_callback
         )
 
-        self.pub_segment_image = self.advertise("~output_image", Image, queue_size=1)
+        self.pub_debug_image = self.advertise("~output_image", Image, queue_size=1)
+        self.pub_segmentation_image = self.advertise(
+            "~segmentation_image", Image, queue_size=1
+        )
         self.bridge = cv_bridge.CvBridge()
 
         self.points = []
@@ -230,6 +233,17 @@ class TrackNode(ConnectionBasedTransport):
 
         if self.template_mask is not None:  # track start
             self.mask, self.logit, self.painted_image = self.xmem.track(self.image)
+
+            seg_img = self.bridge.cv2_to_imgmsg(
+                self.mask.astype(np.int32), encoding="32SC1"
+            )
+            # for debug
+            # seg_img = self.bridge.cv2_to_imgmsg(
+            #     np.where(self.mask > 0.5, 255, 0).astype(np.uint8),
+            #     encoding="mono8",
+            # )
+            seg_img.header = img_msg.header
+            self.pub_segmentation_image.publish(seg_img)
         else:  # init
             if self.mask is not None:
                 self.painted_image = mask_painter(
@@ -265,7 +279,7 @@ class TrackNode(ConnectionBasedTransport):
         # out_img_msg = self.bridge.cv2_to_imgmsg(self.painted_image, encoding="bgr8")
         out_img_msg = self.bridge.cv2_to_imgmsg(self.painted_image, encoding="rgb8")
         out_img_msg.header = img_msg.header
-        self.pub_segment_image.publish(out_img_msg)
+        self.pub_debug_image.publish(out_img_msg)
 
 
 if __name__ == "__main__":
