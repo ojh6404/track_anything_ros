@@ -3,13 +3,22 @@
   <arg name="ns" default="track_anything" />
   <arg name="model_type" default="vit_b" />
   <arg name="device" default="cuda:0" />
-  <arg name="input_image" default="/zed/zed_node/rgb/image_rect_color"/>
-  <arg name="processed_image" default="resized_image_color"/>
-  <arg name="input_point" default="resized_image_color/screenpoint" />
+  <arg name="input_image" default="/kinect_head/rgb/image_rect_color"/>
+  <arg name="input_depth" default="/kinect_head/depth_registered/image"/>
+  <arg name="input_camera_info" default="/kinect_head/depth_registered/camera_info"/>
+  <arg name="processed_image" default="processed_image_color"/>
+  <arg name="compressed" default="false" />
+  <arg name="input_point" default="processed_image_color/screenpoint" />
   <arg name="output_image" default="segmented_image" />
   <arg name="segmentation_image" default="segmented_mask" />
   <arg name="width" default="640"/>
   <arg name="height" default="480"/>
+
+
+
+  <arg name="_input_image" default="/$(arg namespace)/decompressed_image" if="$(arg compressed)"/>
+  <arg name="_input_image" default="$(arg input_image)" unless="$(arg compressed)"/>
+
 
   <include file="$(find track_anything_ros)/launch/include/resize.launch" >
     <arg name="width" value="$(arg width)" />
@@ -35,7 +44,12 @@
       </rosparam>
     </node>
 
-    <!-- <node pkg="jsk_rqt_plugins" type="rqt_image_view2" name="$(anon rqt_image_view2)" -->
+
+    <include file="$(find track_anything_ros)/launch/decompress_depth.launch">
+      <arg name="input_image" value="$(arg input_image)"/>
+      <arg name="input_depth" value="$(arg input_depth)"/>
+    </include>
+
     <node pkg="jsk_rqt_plugins" type="rqt_image_view2" name="prompter"
           output="screen">
       <remap from="event" to="image_view2/event" />
