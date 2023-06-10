@@ -88,7 +88,7 @@ class TrackNode(ConnectionBasedTransport):
 
         self.pub_debug_image = self.advertise("~output_image", Image, queue_size=1)
         self.pub_segmentation_image = self.advertise(
-            "~segmentation_image", Image, queue_size=1
+            "~segmentation_mask", Image, queue_size=1
         )
         self.bridge = cv_bridge.CvBridge()
 
@@ -234,16 +234,17 @@ class TrackNode(ConnectionBasedTransport):
         if self.template_mask is not None:  # track start
             self.mask, self.logit, self.painted_image = self.xmem.track(self.image)
 
-            seg_img = self.bridge.cv2_to_imgmsg(
+            # encoding should be 32SC1 for jsk_pcl_utils/LabelToClusterPointIndices
+            seg_mask = self.bridge.cv2_to_imgmsg(
                 self.mask.astype(np.int32), encoding="32SC1"
             )
             # for debug
-            # seg_img = self.bridge.cv2_to_imgmsg(
-            #     np.where(self.mask > 0.5, 255, 0).astype(np.uint8),
-            #     encoding="mono8",
+            # seg_mask = self.bridge.cv2_to_imgmsg(
+            #     np.where(self.mask > 0, 255, 0).astype(np.uint8), encoding="mono8"
             # )
-            seg_img.header = img_msg.header
-            self.pub_segmentation_image.publish(seg_img)
+            # rospy.loginfo("segmented : {}".format(np.unique(self.mask)))
+            seg_mask.header = img_msg.header
+            self.pub_segmentation_image.publish(seg_mask)
         else:  # init
             if self.mask is not None:
                 self.painted_image = mask_painter(

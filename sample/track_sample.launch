@@ -9,8 +9,8 @@
   <arg name="processed_image" default="processed_image_color"/>
   <arg name="compressed" default="false" />
   <arg name="input_point" default="processed_image_color/screenpoint" />
-  <arg name="output_image" default="segmented_image" />
-  <arg name="segmentation_image" default="segmented_mask" />
+  <arg name="output_image" default="segmentation_image" />
+  <arg name="segmentation_mask" default="segmentation_mask" />
   <arg name="width" default="640"/>
   <arg name="height" default="480"/>
 
@@ -34,7 +34,7 @@
       <remap from="~input_image" to="$(arg processed_image)" />
       <remap from="~input_point" to="$(arg input_point)" />
       <remap from="~output_image" to="$(arg output_image)" />
-      <remap from="~segmentation_image" to="$(arg segmentation_image)" />
+      <remap from="~segmentation_mask" to="$(arg segmentation_mask)" />
       <rosparam subst_value="true" >
         device: $(arg device)
         model_type: $(arg model_type)
@@ -45,10 +45,10 @@
     </node>
 
 
-    <include file="$(find track_anything_ros)/launch/decompress_depth.launch">
-      <arg name="input_image" value="$(arg input_image)"/>
-      <arg name="input_depth" value="$(arg input_depth)"/>
-    </include>
+    <!-- <include file="$(find track_anything_ros)/launch/decompress_depth.launch"> -->
+    <!--   <arg name="input_image" value="$(arg input_image)"/> -->
+    <!--   <arg name="input_depth" value="$(arg input_depth)"/> -->
+    <!-- </include> -->
 
     <node pkg="jsk_rqt_plugins" type="rqt_image_view2" name="prompter"
           output="screen">
