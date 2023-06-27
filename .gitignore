@@ -5,3 +5,4 @@ tmp/
 
 *.pth
 *.pyc
+*.bag
