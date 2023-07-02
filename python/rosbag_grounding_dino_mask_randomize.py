@@ -31,10 +31,12 @@ from track_anything_ros.utils.util import (
 )
 from segment_anything import sam_model_registry, SamPredictor
 
-color_category = [67, 102, 28, 114, 3]
-color_v_bias = [-20, -40, 0, 35, 15]
+# green, blue  
+color_category = [65, 114, 3, 20]
+# color_v_bias = [-20, -40, 0, 35, 15]
 
-package_path = rospkg.RosPack().get_path("track_anything_ros")
+# package_path = rospkg.RosPack().get_path("track_anything_ros")
+package_path = "/home/leus/ros/pr2_ws/src/track_anything_ros"
 SAM_CHECKPOINT = {
     "vit_h": os.path.join(package_path, "checkpoints/sam_vit_h_4b8939.pth"),
     "vit_b": os.path.join(package_path,"checkpoints/sam_vit_b_01ec64.pth")
@@ -201,17 +203,18 @@ class SegmentAndTrack(object):
         h_deg_max = 180
         h_deg = np.random.uniform(low=0, high=h_deg_max, size=len(mask_unique))
 
-        color = color_category[self.color_idx]
-        v_bias = color_v_bias[self.color_idx]
-        h_deg = (
-            np.ones(len(mask_unique)) * color * np.random.uniform(low=0.95, high=1.05)
-        )  # blue
+        color = color_category[self.color_idx]       
+        h_deg = np.ones(len(mask_unique)) * color
+        # v_bias = color_v_bias[self.color_idx]
+        # h_deg = (
+        #     np.ones(len(mask_unique)) * color * np.random.uniform(low=0.95, high=1.05)
+        # )  # blue
         # s_deg = np.ones(len(mask_unique)) * 68
         # v_deg = np.ones(len(mask_unique)) * 140
 
         # h_deg = [0, 100]
-        s_mag = np.random.uniform(low=0.9, high=1.1)
-        v_mag = np.random.uniform(low=0.9, high=1.2)
+        # s_mag = np.random.uniform(low=0.9, high=1.1)
+        # v_mag = np.random.uniform(low=0.9, high=1.2)
 
         for i in range(frame_len):
             frame_rgb = frames_rgb[i]
@@ -231,12 +234,12 @@ class SegmentAndTrack(object):
                 randomized_frame[:, :, 0] = np.clip(
                     h_deg[mask_idx - 1], 0, h_deg_max
                 ).astype(np.uint8)
-                randomized_frame[:, :, 1] = np.clip(
-                    randomized_frame[:, :, 1] * s_mag, 0, 255
-                ).astype(np.uint8)
-                randomized_frame[:, :, 2] = np.clip(
-                    randomized_frame[:, :, 2] * v_mag + v_bias, 0, 255
-                ).astype(np.uint8)
+                # randomized_frame[:, :, 1] = np.clip(
+                #     randomized_frame[:, :, 1], 0, 255
+                # ).astype(np.uint8)
+                # randomized_frame[:, :, 2] = np.clip(
+                #     randomized_frame[:, :, 2], 0, 255
+                # ).astype(np.uint8)
                 # randomized_frame[:, :, 0] = np.clip(h_deg[mask_idx -    1], 0, h_deg_max)
                 # randomized_frame[:, :, 1] = np.clip(s_deg[mask_idx - 1] * s_mag, 0, 255)
                 # randomized_frame[:, :, 2] = np.clip(v_deg[mask_idx - 1] * v_mag, 0, 255)
@@ -377,10 +380,11 @@ if __name__ == "__main__":
     bags = get_bag_files_from_dir(bag_dir)
     bags.sort()  # sort by name
 
+    print("bag files : {}".format(bags))
 
     grounding_dino_model = load_grounding_dino_model(config_file, grounded_checkpoint, device=device)
     
-    for idx in range(len(color_category)):
+    for idx in range(num_aug):
         for bag_path in bags:
             bag_file = bag_path.split("/")[-1]
 
@@ -411,7 +415,10 @@ if __name__ == "__main__":
             ).to(device)
 
             if transformed_boxes.size(0) == 0:
+                print("not detected")
                 continue
+            else:
+                print("{} detected".format(text_prompt))
 
             masks, _, _ = segment_and_track.sam_predictor.predict_torch(
                 point_coords=None,
