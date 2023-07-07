@@ -91,7 +91,7 @@ class TrackNode(ConnectionBasedTransport):
         self.pub_segmentation_image = self.advertise(
             "~segmentation_mask", Image, queue_size=1
         )
-        self.pub_original_image = self.advertise("~original_image", Image, queue_size=1)
+        # self.pub_original_image = self.advertise("~original_image", Image, queue_size=1)
         self.bridge = CvBridge()
 
         self.points = []
@@ -247,7 +247,6 @@ class TrackNode(ConnectionBasedTransport):
         return image[y : y + height, x : x + width]
 
     def callback(self, img_msg):
-        # self.image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
         self.image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
 
         if self.template_mask is not None:  # track start
@@ -259,7 +258,7 @@ class TrackNode(ConnectionBasedTransport):
             )
 
             seg_mask.header = img_msg.header
-            seg_mask.header.stamp = rospy.Time.now()
+            # seg_mask.header.stamp = rospy.Time.now()
             self.pub_segmentation_image.publish(seg_mask)
 
         else:  # init
@@ -294,14 +293,9 @@ class TrackNode(ConnectionBasedTransport):
                 CONTOUR_WIDTH,
             )
 
-        original_img_msg = self.bridge.cv2_to_imgmsg(self.image, encoding="bgr8")
-        original_img_msg.header = img_msg.header
-        original_img_msg.header.stamp = rospy.Time.now()
-        self.pub_original_image.publish(original_img_msg)
-
         debug_img_msg = self.bridge.cv2_to_imgmsg(self.painted_image, encoding="bgr8")
         debug_img_msg.header = img_msg.header
-        debug_img_msg.header.stamp = rospy.Time.now()
+        # debug_img_msg.header.stamp = rospy.Time.now()
         self.pub_debug_image.publish(debug_img_msg)
 
 
